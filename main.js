@@ -103,13 +103,13 @@
     });
   };
   displayError = function(err) {
+    console.log(err);
     chrome.browserAction.setBadgeText({
       text: 'err'
     });
-    chrome.browserAction.setTitle({
+    return chrome.browserAction.setTitle({
       title: err
     });
-    return console.log(err);
   };
   maxMessages = 101;
   getDeviations = function(callback) {
@@ -129,7 +129,8 @@
             return hits.push(hit);
           });
         } catch (err) {
-          displayError(err);
+          console.log(err);
+          displayError("Error parsing response from deviantART.");
         }
         console.log("Deviations retrieved!");
         return callback(hits);
@@ -162,16 +163,20 @@
     if (refreshTimer != null) {
       clearTimeout(refreshTimer);
     }
-    fetch = function() {
-      return getDeviations(function(hits) {
-        newMessages = hits;
-        return updateDisplay();
-      });
-    };
-    if (!(folderId != null)) {
-      updateFolderId(fetch);
+    if (loggedIn) {
+      fetch = function() {
+        return getDeviations(function(hits) {
+          newMessages = hits;
+          return updateDisplay();
+        });
+      };
+      if (!(folderId != null)) {
+        updateFolderId(fetch);
+      } else {
+        fetch();
+      }
     } else {
-      fetch();
+      checkLoginStatus();
     }
     return refreshTimer = setTimeout(refresh, Store.get('updateInterval'));
   };

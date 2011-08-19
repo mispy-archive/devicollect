@@ -124,18 +124,21 @@ refreshTimer = null
 refresh = () ->
   clearTimeout(refreshTimer) if refreshTimer?
 
-  fetch = -> getDeviations((hits) ->
-      newMessages = hits
-      #extantIds = message.msgid for message in newMessages
-      #for hit in hits
-      #  newMessages.push(hit) unless hit.msgid in extantIds
-      updateDisplay()
-    )
+  if loggedIn
+    fetch = -> getDeviations((hits) ->
+        newMessages = hits
+        #extantIds = message.msgid for message in newMessages
+        #for hit in hits
+        #  newMessages.push(hit) unless hit.msgid in extantIds
+        updateDisplay()
+      )
 
-  if !folderId?
-    updateFolderId(fetch)
+    if !folderId?
+      updateFolderId(fetch)
+    else
+      fetch()
   else
-    fetch()
+    checkLoginStatus()
 
   refreshTimer = setTimeout(refresh, Store.get('updateInterval'))
 

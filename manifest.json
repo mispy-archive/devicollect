@@ -1,6 +1,6 @@
 {
   "name": "Deviation Collector",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Monitoring and one-click tab opening of new artwork from watched deviantART users.",
   "background_page": "background.html",
   "browser_action": {
