@@ -213,4 +213,9 @@ Store.setDefault('maxTabs', 20)
 setLoggedOut()
 checkLoginStatus()
 
+updateOptions = ->
+  clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(refresh, Store.get('updateInterval'))
+
 window.refresh = refresh
+window.updateOptions = updateOptions

@@ -1,5 +1,5 @@
 (function() {
-  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, waitForLoaded;
+  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, updateOptions, waitForLoaded;
   folderId = null;
   loggedIn = false;
   loading = false;
@@ -277,5 +277,10 @@
   Store.setDefault('maxTabs', 20);
   setLoggedOut();
   checkLoginStatus();
+  updateOptions = function() {
+    clearTimeout(refreshTimer);
+    return refreshTimer = setTimeout(refresh, Store.get('updateInterval'));
+  };
   window.refresh = refresh;
+  window.updateOptions = updateOptions;
 }).call(this);

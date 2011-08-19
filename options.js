@@ -5,7 +5,10 @@
     updateInterval = parseInt($('#updateInterval').val());
     maxTabs = parseInt($('#maxTabs').val());
     if (updateInterval > 0) {
-      Store.set('updateInterval', updateInterval * 60 * 1000);
+      if (updateInterval !== Store.get('updateInterval')) {
+        Store.set('updateInterval', updateInterval * 60 * 1000);
+        chrome.extension.getBackgroundPage().updateOptions();
+      }
     }
     if (maxTabs > 0) {
       return Store.set('maxTabs', maxTabs);
