@@ -2,7 +2,7 @@
 # Globals
 
 folderId = null
-needLogin = false
+loggedIn = false
 loading = false
 newMessages = []
 
@@ -42,29 +42,22 @@ $(document).ajaxError (event) ->
 
 # Main functionality
 
-setLoginRequired = ->
-  console.log("Login required!")
-  needLogin = true
-  folderId = null
-  chrome.browserAction.setBadgeText({ text: "login" })
-  chrome.browserAction.setTitle({ title: "Please log in to deviantART." })
-
 updateFolderId = (callback) ->
   console.log("Updating folder ID...")
   $.get("http://my.deviantart.com/messages/#view=deviations", (data) ->
     match = data.match(/aggid.+?(\d+)/)
     if !match?
       if data.match(/Deviant Login/)
-        setLoginRequired()
+        setLoggedOut()
       else
-        console.log
+        console.log(data)
         displayError("Error loading deviantART!")
     else
       folderId = match[1]
       console.log("Folder ID updated!")
       callback(folderId) if callback?
   ).error (event) ->
-    setLoginRequired()
+    setLoggedOut()
 
 deleteMessages = (msgIds, callback) ->
   chrome.cookies.get({ url: "http://my.deviantart.com/", name: "userinfo" }, (cookie) ->
@@ -101,7 +94,7 @@ getDeviations = (callback) ->
     obj = JSON.parse(data)
     if obj.DiFi.status == "FAIL"
       #err = obj.DiFi.response.details.calls[0].response.content.error
-      setLoginRequired()
+      setLoggedOut()
     else
       #console.log(obj)
       try
@@ -149,7 +142,7 @@ chrome.browserAction.onClicked.addListener((tab) ->
   if loading
     console.log("Loading...")
     return
-  else if needLogin
+  else if !loggedIn
     chrome.tabs.create( url: "http://www.deviantart.com/users/login" )
   else if newMessages.length == 0
     refresh()
@@ -185,20 +178,35 @@ chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
     waitForLoaded(tab.id, refresh)
 ###
 
-loginCheckTimer = null
+setLoggedOut = ->
+  console.log("Login required!")
+  loggedIn = false
+  folderId = null
+  chrome.browserAction.setBadgeText({ text: "login" })
+  chrome.browserAction.setTitle({ title: "Please log in to deviantART." })
+
+setLoggedIn = ->
+  folderId = null
+  loggedIn = true
+  refresh()
+
+checkLoginStatus = ->
+  chrome.cookies.get({ url: "http://my.deviantart.com/", name: "userinfo" }, (cookie) ->
+    ui = $.parseJSON(decodeURIComponent(cookie.value).split(";")[1])
+    if ui.username == "" and loggedIn
+      setLoggedOut()
+    else if ui.username != "" and !loggedIn
+      setLoggedIn()
+  )
 
 chrome.cookies.onChanged.addListener (changeInfo) ->
-  if changeInfo.cause == "explicit" and changeInfo.cookie.domain == ".deviantart.com" and changeInfo.cookie.name == "userinfo"
-    console.log("OMG CHANGE")
-    console.log(changeInfo)
-    clearTimeout(loginCheckTimer)
-    loginCheckTimer = setTimeout((->
-      needLogin = false
-      refresh()), 1000)
+  if changeInfo.cookie.domain == ".deviantart.com" and changeInfo.cookie.name == "userinfo"
+    checkLoginStatus()
 
   
 Store.setDefault('updateInterval', 10 * 60 * 1000)
 Store.setDefault('maxTabs', 20)
-refresh()
+setLoggedOut()
+checkLoginStatus()
 
 window.refresh = refresh

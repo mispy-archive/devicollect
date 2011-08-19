@@ -1,7 +1,7 @@
 (function() {
-  var currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loginCheckTimer, maxMessages, n, needLogin, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoginRequired, updateDisplay, updateFolderId, waitForLoaded;
+  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, loginCheckTimer, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, waitForLoaded;
   folderId = null;
-  needLogin = false;
+  loggedIn = false;
   loading = false;
   newMessages = [];
   originalIcon = "icons/icon.png";
@@ -51,17 +51,6 @@
     loading = false;
     return setIcon(originalIcon);
   });
-  setLoginRequired = function() {
-    console.log("Login required!");
-    needLogin = true;
-    folderId = null;
-    chrome.browserAction.setBadgeText({
-      text: "login"
-    });
-    return chrome.browserAction.setTitle({
-      title: "Please log in to deviantART."
-    });
-  };
   updateFolderId = function(callback) {
     console.log("Updating folder ID...");
     return $.get("http://my.deviantart.com/messages/#view=deviations", function(data) {
@@ -69,9 +58,9 @@
       match = data.match(/aggid.+?(\d+)/);
       if (!(match != null)) {
         if (data.match(/Deviant Login/)) {
-          return setLoginRequired();
+          return setLoggedOut();
         } else {
-          console.log;
+          console.log(data);
           return displayError("Error loading deviantART!");
         }
       } else {
@@ -82,7 +71,7 @@
         }
       }
     }).error(function(event) {
-      return setLoginRequired();
+      return setLoggedOut();
     });
   };
   deleteMessages = function(msgIds, callback) {
@@ -134,7 +123,7 @@
       window.data = data;
       obj = JSON.parse(data);
       if (obj.DiFi.status === "FAIL") {
-        return setLoginRequired();
+        return setLoggedOut();
       } else {
         try {
           obj.DiFi.response.calls[0].response.content[0].result.hits.forEach(function(hit) {
@@ -191,7 +180,7 @@
     var max, message, _i, _len, _ref;
     if (loading) {
       console.log("Loading...");
-    } else if (needLogin) {
+    } else if (!loggedIn) {
       return chrome.tabs.create({
         url: "http://www.deviantart.com/users/login"
       });
@@ -246,19 +235,44 @@
       waitForLoaded(tab.id, refresh)
   */
   loginCheckTimer = null;
+  setLoggedOut = function() {
+    console.log("Login required!");
+    loggedIn = false;
+    folderId = null;
+    chrome.browserAction.setBadgeText({
+      text: "login"
+    });
+    return chrome.browserAction.setTitle({
+      title: "Please log in to deviantART."
+    });
+  };
+  setLoggedIn = function() {
+    folderId = null;
+    loggedIn = true;
+    return refresh();
+  };
+  checkLoginStatus = function() {
+    return chrome.cookies.get({
+      url: "http://my.deviantart.com/",
+      name: "userinfo"
+    }, function(cookie) {
+      var ui;
+      ui = $.parseJSON(decodeURIComponent(cookie.value).split(";")[1]);
+      if (ui.username === "" && loggedIn) {
+        return setLoggedOut();
+      } else if (ui.username !== "" && !loggedIn) {
+        return setLoggedIn();
+      }
+    });
+  };
   chrome.cookies.onChanged.addListener(function(changeInfo) {
-    if (changeInfo.cause === "explicit" && changeInfo.cookie.domain === ".deviantart.com" && changeInfo.cookie.name === "userinfo") {
-      console.log("OMG CHANGE");
-      console.log(changeInfo);
-      clearTimeout(loginCheckTimer);
-      return loginCheckTimer = setTimeout((function() {
-        needLogin = false;
-        return refresh();
-      }), 1000);
+    if (changeInfo.cookie.domain === ".deviantart.com" && changeInfo.cookie.name === "userinfo") {
+      return checkLoginStatus();
     }
   });
   Store.setDefault('updateInterval', 10 * 60 * 1000);
   Store.setDefault('maxTabs', 20);
-  refresh();
+  setLoggedOut();
+  checkLoginStatus();
   window.refresh = refresh;
 }).call(this);
