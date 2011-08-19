@@ -1,5 +1,5 @@
 (function() {
-  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, loginCheckTimer, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, waitForLoaded;
+  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, waitForLoaded;
   folderId = null;
   loggedIn = false;
   loading = false;
@@ -49,7 +49,8 @@
     console.log("Ajax error!");
     console.log(event);
     loading = false;
-    return setIcon(originalIcon);
+    setIcon(originalIcon);
+    return displayError("Error connecting to deviantART!");
   });
   updateFolderId = function(callback) {
     console.log("Updating folder ID...");
@@ -61,7 +62,7 @@
           return setLoggedOut();
         } else {
           console.log(data);
-          return displayError("Error loading deviantART!");
+          return displayError("Unable to find deviantWATCH folder ID.");
         }
       } else {
         folderId = match[1];
@@ -70,8 +71,6 @@
           return callback(folderId);
         }
       }
-    }).error(function(event) {
-      return setLoggedOut();
     });
   };
   deleteMessages = function(msgIds, callback) {
@@ -234,7 +233,6 @@
       console.log("Logged out? :(")
       waitForLoaded(tab.id, refresh)
   */
-  loginCheckTimer = null;
   setLoggedOut = function() {
     console.log("Login required!");
     loggedIn = false;

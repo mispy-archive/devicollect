@@ -39,6 +39,7 @@ $(document).ajaxError (event) ->
   console.log(event)
   loading = false
   setIcon(originalIcon)
+  displayError("Error connecting to deviantART!")
 
 # Main functionality
 
@@ -51,13 +52,12 @@ updateFolderId = (callback) ->
         setLoggedOut()
       else
         console.log(data)
-        displayError("Error loading deviantART!")
+        displayError("Unable to find deviantWATCH folder ID.")
     else
       folderId = match[1]
       console.log("Folder ID updated!")
       callback(folderId) if callback?
-  ).error (event) ->
-    setLoggedOut()
+  )
 
 deleteMessages = (msgIds, callback) ->
   chrome.cookies.get({ url: "http://my.deviantart.com/", name: "userinfo" }, (cookie) ->
@@ -77,9 +77,9 @@ deleteMessages = (msgIds, callback) ->
   )
 
 displayError = (err) ->
+  console.log(err)
   chrome.browserAction.setBadgeText({ text: 'err' })
   chrome.browserAction.setTitle({ title: err })
-  console.log(err)
 
 maxMessages = 101
 
@@ -102,7 +102,8 @@ getDeviations = (callback) ->
           hits.push(hit)
         )
       catch err
-        displayError(err)
+        console.log(err)
+        displayError("Error parsing response from deviantART.")
         
       console.log("Deviations retrieved!")
       callback(hits)
