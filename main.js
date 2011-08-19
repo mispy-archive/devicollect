@@ -1,11 +1,5 @@
 (function() {
-  var currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, n, needLogin, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoginRequired, updateDisplay, updateFolderId, waitForLoaded;
-  var __indexOf = Array.prototype.indexOf || function(item) {
-    for (var i = 0, l = this.length; i < l; i++) {
-      if (this[i] === item) return i;
-    }
-    return -1;
-  };
+  var currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, maxMessages, n, needLogin, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoginRequired, updateDisplay, updateFolderId, waitForLoaded;
   folderId = null;
   needLogin = false;
   loading = false;
@@ -60,6 +54,7 @@
   setLoginRequired = function() {
     console.log("Login required!");
     needLogin = true;
+    folderId = null;
     chrome.browserAction.setBadgeText({
       text: "login"
     });
@@ -76,6 +71,7 @@
         if (data.match(/Deviant Login/)) {
           return setLoginRequired();
         } else {
+          console.log;
           return displayError("Error loading deviantART!");
         }
       } else {
@@ -128,9 +124,10 @@
     });
     return console.log(err);
   };
+  maxMessages = 101;
   getDeviations = function(callback) {
     var hits, message_url;
-    message_url = "http://my.deviantart.com/global/difi/?c%5B%5D=%22MessageCenter%22%2C%22get_views%22%2C%5B" + folderId + "%2C%22oq%3Adevwatch%3A0%3A48%3Af%3Atg%3Ddeviations%22%5D&t=json";
+    message_url = 'http://my.deviantart.com/global/difi/?' + encodeURI('c[]="MessageCenter","get_views",[' + folderId + ',"oq:devwatch:0:' + maxMessages + ':f:tg=deviations"]') + '&t=json';
     hits = [];
     console.log("Retrieving deviations...");
     return $.get(message_url, function(data) {
@@ -140,16 +137,21 @@
       if (obj.DiFi.status === "FAIL") {
         return setLoginRequired();
       } else {
-        obj.DiFi.response.calls[0].response.content[0].result.hits.forEach(function(hit) {
-          return hits.push(hit);
-        });
+        console.log(obj);
+        try {
+          obj.DiFi.response.calls[0].response.content[0].result.hits.forEach(function(hit) {
+            return hits.push(hit);
+          });
+        } catch (err) {
+          displayError(err);
+        }
         console.log("Deviations retrieved!");
         return callback(hits);
       }
     });
   };
   updateDisplay = function() {
-    var num;
+    var num, numDesc;
     if (newMessages.length === 0) {
       chrome.browserAction.setBadgeText({
         text: ""
@@ -159,11 +161,12 @@
       });
     } else {
       num = newMessages.length;
+      numDesc = num === maxMessages ? ">" + (num - 1) : "" + num;
       chrome.browserAction.setBadgeText({
-        text: num.toString()
+        text: numDesc
       });
       return chrome.browserAction.setTitle({
-        title: "" + num + " new deviation" + (num > 1 ? 's' : '')
+        title: "" + numDesc + " new deviation" + (num > 1 ? 's' : '')
       });
     }
   };
@@ -175,17 +178,7 @@
     }
     fetch = function() {
       return getDeviations(function(hits) {
-        var extantIds, hit, message, _i, _j, _len, _len2, _ref;
-        for (_i = 0, _len = newMessages.length; _i < _len; _i++) {
-          message = newMessages[_i];
-          extantIds = message.msgid;
-        }
-        for (_j = 0, _len2 = hits.length; _j < _len2; _j++) {
-          hit = hits[_j];
-          if (_ref = hit.msgid, __indexOf.call(extantIds, _ref) < 0) {
-            newMessages.push(hit);
-          }
-        }
+        newMessages = hits;
         return updateDisplay();
       });
     };
@@ -197,7 +190,7 @@
     return refreshTimer = setTimeout(refresh, Store.get('updateInterval'));
   };
   chrome.browserAction.onClicked.addListener(function(tab) {
-    var message, _i, _len;
+    var max, message, _i, _len, _ref;
     if (loading) {
       console.log("Loading...");
     } else if (needLogin) {
@@ -207,23 +200,25 @@
     } else if (newMessages.length === 0) {
       return refresh();
     } else {
-      for (_i = 0, _len = newMessages.length; _i < _len; _i++) {
-        message = newMessages[_i];
+      max = Store.get('maxTabs');
+      _ref = newMessages.slice(0, (max + 1) || 9e9);
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        message = _ref[_i];
         chrome.tabs.create({
           url: message.url
         });
       }
       deleteMessages((function() {
-        var _j, _len2, _results;
+        var _j, _len2, _ref2, _results;
+        _ref2 = newMessages.slice(0, (max + 1) || 9e9);
         _results = [];
-        for (_j = 0, _len2 = newMessages.length; _j < _len2; _j++) {
-          message = newMessages[_j];
+        for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+          message = _ref2[_j];
           _results.push(message.msgid);
         }
         return _results;
-      })());
-      newMessages = [];
-      return updateDisplay();
+      })(), refresh);
+      return newMessages = newMessages.slice(max);
     }
   });
   waitForLoaded = function(tabId, callback) {
@@ -252,6 +247,7 @@
     }
   });
   Store.setDefault('updateInterval', 10 * 60 * 1000);
+  Store.setDefault('maxTabs', 20);
   refresh();
   window.refresh = refresh;
 }).call(this);

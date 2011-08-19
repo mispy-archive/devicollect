@@ -1,15 +1,20 @@
 (function() {
   var save;
   save = function() {
-    var val;
-    val = parseInt($('#updateInterval').val());
-    if (val > 0) {
-      return Store.set('updateInterval', parseInt(val * 60 * 1000));
+    var maxTabs, updateInterval;
+    updateInterval = parseInt($('#updateInterval').val());
+    maxTabs = parseInt($('#maxTabs').val());
+    if (updateInterval > 0) {
+      Store.set('updateInterval', updateInterval * 60 * 1000);
+    }
+    if (maxTabs > 0) {
+      return Store.set('maxTabs', maxTabs);
     }
   };
   $(function() {
-    var saveLoop, saveTimer, saving;
+    var blurred, focused, saveLoop, saveTimer, saving;
     $('#updateInterval').val(Store.get('updateInterval') / 60 / 1000);
+    $('#maxTabs').val(Store.get('maxTabs'));
     saveTimer = null;
     saving = false;
     saveLoop = function() {
@@ -20,13 +25,17 @@
       save();
       return saveTimer = setTimeout(save, 300);
     };
-    $("#updateInterval").focus(function() {
+    focused = function() {
       saving = true;
       return saveLoop();
-    });
-    return $("#updateInterval").blur(function() {
+    };
+    blurred = function() {
       save();
       return saving = false;
-    });
+    };
+    $("#updateInterval").focus(focused);
+    $("#maxTabs").focus(focused);
+    $("#updateInterval").blur(blurred);
+    return $("#maxTabs").blur(blurred);
   });
 }).call(this);

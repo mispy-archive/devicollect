@@ -1,10 +1,15 @@
 save = ->
-  val = parseInt($('#updateInterval').val())
-  if val > 0
-    Store.set('updateInterval', parseInt(val * 60 * 1000))
+  updateInterval = parseInt($('#updateInterval').val())
+  maxTabs = parseInt($('#maxTabs').val())
+  if updateInterval > 0
+    Store.set('updateInterval', updateInterval * 60 * 1000)
+  if maxTabs > 0
+    Store.set('maxTabs', maxTabs)
+
 
 $ ->
   $('#updateInterval').val(Store.get('updateInterval') / 60 / 1000)
+  $('#maxTabs').val(Store.get('maxTabs'))
 
   saveTimer = null
 
@@ -16,10 +21,16 @@ $ ->
     save()
     saveTimer = setTimeout(save, 300)
 
-  $("#updateInterval").focus ->
+  focused = ->
     saving = true
     saveLoop()
 
-  $("#updateInterval").blur ->
+  blurred = ->
     save()
     saving = false
+
+  $("#updateInterval").focus focused
+  $("#maxTabs").focus focused
+
+  $("#updateInterval").blur blurred
+  $("#maxTabs").blur blurred

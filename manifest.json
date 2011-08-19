@@ -1,12 +1,11 @@
 {
   "name": "Deviation Collector",
-  "version": "1.0",
-  "description": "Monitoring and one-click tab opening of all new deviation messages.",
+  "version": "0.0.3",
+  "description": "Monitoring and one-click tab opening of new artwork from watched deviantART users.",
   "background_page": "background.html",
   "browser_action": {
 	"default_icon": "icons/icon.png"
   },
-  "icons": { "16": "icons/icon.png" }
   "options_page": "options.html",
   "permissions": [
 	"cookies",
