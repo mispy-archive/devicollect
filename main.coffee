@@ -78,7 +78,7 @@ deleteMessages = (msgIds, callback) ->
     }
     console.log("Deleting messages...")
     $.post("http://my.deviantart.com/global/difi/?", data, (resp) ->
-      console.log(resp)
+      #console.log(resp)
       callback() if callback?
     )
   )
@@ -103,7 +103,7 @@ getDeviations = (callback) ->
       #err = obj.DiFi.response.details.calls[0].response.content.error
       setLoginRequired()
     else
-      console.log(obj)
+      #console.log(obj)
       try
         obj.DiFi.response.calls[0].response.content[0].result.hits.forEach((hit) ->
           hits.push(hit)
@@ -173,8 +173,9 @@ waitForLoaded = (tabId, callback) ->
   repeater()
 
 
+###
 chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
-  #console.log("From: '#{tab.url}' to '#{changeInfo.url}'")
+  console.log("From: '#{tab.url}' to '#{changeInfo.url}'")
   if needLogin and tab.url.match(/deviantart.com\/($|\?loggedin)/)
     console.log("Logged in? :D")
     needLogin = false
@@ -182,6 +183,18 @@ chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
   else if tab.url.match(/deviantart.+?rockedout/)
     console.log("Logged out? :(")
     waitForLoaded(tab.id, refresh)
+###
+
+loginCheckTimer = null
+
+chrome.cookies.onChanged.addListener (changeInfo) ->
+  if changeInfo.cause == "explicit" and changeInfo.cookie.domain == ".deviantart.com" and changeInfo.cookie.name == "userinfo"
+    console.log("OMG CHANGE")
+    console.log(changeInfo)
+    clearTimeout(loginCheckTimer)
+    loginCheckTimer = setTimeout((->
+      needLogin = false
+      refresh()), 1000)
 
   
 Store.setDefault('updateInterval', 10 * 60 * 1000)

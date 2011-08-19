@@ -1,5 +1,5 @@
 (function() {
-  var currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, maxMessages, n, needLogin, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoginRequired, updateDisplay, updateFolderId, waitForLoaded;
+  var currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loginCheckTimer, maxMessages, n, needLogin, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoginRequired, updateDisplay, updateFolderId, waitForLoaded;
   folderId = null;
   needLogin = false;
   loading = false;
@@ -108,7 +108,6 @@
       };
       console.log("Deleting messages...");
       return $.post("http://my.deviantart.com/global/difi/?", data, function(resp) {
-        console.log(resp);
         if (callback != null) {
           return callback();
         }
@@ -137,7 +136,6 @@
       if (obj.DiFi.status === "FAIL") {
         return setLoginRequired();
       } else {
-        console.log(obj);
         try {
           obj.DiFi.response.calls[0].response.content[0].result.hits.forEach(function(hit) {
             return hits.push(hit);
@@ -236,14 +234,27 @@
     };
     return repeater();
   };
-  chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-    if (needLogin && tab.url.match(/deviantart.com\/($|\?loggedin)/)) {
-      console.log("Logged in? :D");
-      needLogin = false;
-      return waitForLoaded(tab.id, refresh);
-    } else if (tab.url.match(/deviantart.+?rockedout/)) {
-      console.log("Logged out? :(");
-      return waitForLoaded(tab.id, refresh);
+  /*
+  chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
+    console.log("From: '#{tab.url}' to '#{changeInfo.url}'")
+    if needLogin and tab.url.match(/deviantart.com\/($|\?loggedin)/)
+      console.log("Logged in? :D")
+      needLogin = false
+      waitForLoaded(tab.id, refresh)
+    else if tab.url.match(/deviantart.+?rockedout/)
+      console.log("Logged out? :(")
+      waitForLoaded(tab.id, refresh)
+  */
+  loginCheckTimer = null;
+  chrome.cookies.onChanged.addListener(function(changeInfo) {
+    if (changeInfo.cause === "explicit" && changeInfo.cookie.domain === ".deviantart.com" && changeInfo.cookie.name === "userinfo") {
+      console.log("OMG CHANGE");
+      console.log(changeInfo);
+      clearTimeout(loginCheckTimer);
+      return loginCheckTimer = setTimeout((function() {
+        needLogin = false;
+        return refresh();
+      }), 1000);
     }
   });
   Store.setDefault('updateInterval', 10 * 60 * 1000);
