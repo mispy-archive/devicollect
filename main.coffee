@@ -127,9 +127,6 @@ refresh = () ->
   if loggedIn
     fetch = -> getDeviations((hits) ->
         newMessages = hits
-        #extantIds = message.msgid for message in newMessages
-        #for hit in hits
-        #  newMessages.push(hit) unless hit.msgid in extantIds
         updateDisplay()
       )
 
@@ -152,8 +149,8 @@ chrome.browserAction.onClicked.addListener((tab) ->
     refresh()
   else
     max = Store.get('maxTabs')
-    chrome.tabs.create( url: message.url ) for message in newMessages[0..max]
-    deleteMessages(message.msgid for message in newMessages[0..max], refresh)
+    chrome.tabs.create( url: message.url ) for message in newMessages[0..max-1]
+    deleteMessages(message.msgid for message in newMessages[0..max-1], refresh)
     newMessages = newMessages[max..-1]
 )
 

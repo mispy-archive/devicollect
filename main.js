@@ -192,7 +192,7 @@
       return refresh();
     } else {
       max = Store.get('maxTabs');
-      _ref = newMessages.slice(0, (max + 1) || 9e9);
+      _ref = newMessages.slice(0, (max - 1 + 1) || 9e9);
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         message = _ref[_i];
         chrome.tabs.create({
@@ -201,7 +201,7 @@
       }
       deleteMessages((function() {
         var _j, _len2, _ref2, _results;
-        _ref2 = newMessages.slice(0, (max + 1) || 9e9);
+        _ref2 = newMessages.slice(0, (max - 1 + 1) || 9e9);
         _results = [];
         for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
           message = _ref2[_j];
