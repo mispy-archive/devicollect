@@ -1,13 +1,16 @@
 <html>
   <head>
 	<title>Deviation Button Options</title>
+	<link rel="stylesheet" type="text/css" href="options.css">
 	<script type="text/javascript" src="jquery-1.6.2.min.js"></script>
 	<script type="text/javascript" src="jquery.json-2.2.min.js"></script>
 	<script type="text/javascript" src="storewrap.js"></script>
 	<script type="text/javascript" src="options.js"></script>
   </head>
 <body>
-  <div><label>Minutes between refreshes:</label> <input type="number" id="updateInterval" min=1.0 size=5></div>
-  <div><label>Maximum tabs to open:</label> <input type="number" id="maxTabs" min=1.0 max=100.0 size=5></div>
+  <div id="options">
+	<div><label>Minutes between refreshes:</label> <input type="number" id="updateInterval" min=1.0 size=5></div>
+	<div><label>Maximum tabs to open:</label> <input type="number" id="maxTabs" min=1.0 max=100.0 size=5></div>
+  </div>
 </body>
 </html>

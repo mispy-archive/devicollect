@@ -1,10 +1,10 @@
 
 # Globals
 
+state = 'idle'
 folderId = null
-loggedIn = false
-loading = false
 newMessages = []
+deletedIds = []
 
 originalIcon = "icons/icon.png"
 loadingIconSeq = ("icons/ajax-loader-#{n}.png" for n in [0..7])
@@ -17,7 +17,7 @@ setIcon = (path) ->
   chrome.browserAction.setIcon({ path: path })
 
 rotateIcon = ->
-  return unless loading
+  return unless state == 'loading'
   icon = loadingIconSeq[loadingIconSeq.indexOf(currentIcon)+1]
   icon = loadingIconSeq[0] if !icon?
   setIcon(icon)
@@ -25,19 +25,19 @@ rotateIcon = ->
 
 $(document).ajaxStart ->
   console.log("Ajax start!")
-  loading = true
+  state = 'loading'
   chrome.browserAction.setBadgeText({ text: '' })
   rotateIcon()
 
 $(document).ajaxStop ->
   console.log("Ajax stop!")
-  loading = false
+  state = 'idle'
   setIcon(originalIcon)
 
 $(document).ajaxError (event) ->
   console.log("Ajax error!")
   console.log(event)
-  loading = false
+  state = 'error'
   setIcon(originalIcon)
   displayError("Error connecting to deviantART!")
 
@@ -71,7 +71,7 @@ deleteMessages = (msgIds, callback) ->
     }
     console.log("Deleting messages...")
     $.post("http://my.deviantart.com/global/difi/?", data, (resp) ->
-      #console.log(resp)
+      deletedIds = deletedIds.concat(msgIds)
       callback() if callback?
     )
   )
@@ -93,10 +93,9 @@ getDeviations = (callback) ->
     window.data = data
     obj = JSON.parse(data)
     if obj.DiFi.status == "FAIL"
-      #err = obj.DiFi.response.details.calls[0].response.content.error
+      # HACK (Mispy): There may be other reasons for the failure we're ignoring here.
       setLoggedOut()
     else
-      #console.log(obj)
       try
         obj.DiFi.response.calls[0].response.content[0].result.hits.forEach((hit) ->
           hits.push(hit)
@@ -124,9 +123,11 @@ refreshTimer = null
 refresh = () ->
   clearTimeout(refreshTimer) if refreshTimer?
 
-  if loggedIn
+  if state != 'needlogin'
     fetch = -> getDeviations((hits) ->
-        newMessages = hits
+        newMessages = []
+        for hit in hits
+          newMessages.push(hit) unless hit.msgid in deletedIds
         updateDisplay()
       )
 
@@ -138,21 +139,6 @@ refresh = () ->
     checkLoginStatus()
 
   refreshTimer = setTimeout(refresh, Store.get('updateInterval'))
-
-chrome.browserAction.onClicked.addListener((tab) ->
-  if loading
-    console.log("Loading...")
-    return
-  else if !loggedIn
-    chrome.tabs.create( url: "http://www.deviantart.com/users/login" )
-  else if newMessages.length == 0
-    refresh()
-  else
-    max = Store.get('maxTabs')
-    chrome.tabs.create( url: message.url ) for message in newMessages[0..max-1]
-    deleteMessages(message.msgid for message in newMessages[0..max-1], refresh)
-    newMessages = newMessages[max..-1]
-)
 
 waitForLoaded = (tabId, callback) ->
   timer = null
@@ -166,49 +152,52 @@ waitForLoaded = (tabId, callback) ->
     )
   repeater()
 
-
-###
-chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
-  console.log("From: '#{tab.url}' to '#{changeInfo.url}'")
-  if needLogin and tab.url.match(/deviantart.com\/($|\?loggedin)/)
-    console.log("Logged in? :D")
-    needLogin = false
-    waitForLoaded(tab.id, refresh)
-  else if tab.url.match(/deviantart.+?rockedout/)
-    console.log("Logged out? :(")
-    waitForLoaded(tab.id, refresh)
-###
-
 setLoggedOut = ->
   console.log("Login required!")
-  loggedIn = false
+  state = 'needlogin'
   folderId = null
   chrome.browserAction.setBadgeText({ text: "login" })
   chrome.browserAction.setTitle({ title: "Please log in to deviantART." })
 
 setLoggedIn = ->
   folderId = null
-  loggedIn = true
+  state = 'idle'
   refresh()
 
 checkLoginStatus = ->
   chrome.cookies.get({ url: "http://my.deviantart.com/", name: "userinfo" }, (cookie) ->
     ui = $.parseJSON(decodeURIComponent(cookie.value).split(";")[1])
-    if ui.username == "" and loggedIn
+    if ui.username == "" and state != 'needlogin'
       setLoggedOut()
-    else if ui.username != "" and !loggedIn
+    else if ui.username != "" and state == 'needlogin'
       setLoggedIn()
   )
 
 chrome.cookies.onChanged.addListener (changeInfo) ->
   if changeInfo.cookie.domain == ".deviantart.com" and changeInfo.cookie.name == "userinfo"
     checkLoginStatus()
-
   
+chrome.browserAction.onClicked.addListener((tab) ->
+  if state == 'loading'
+    console.log("Loading...")
+    return
+  else if state == 'needlogin'
+    chrome.tabs.create( url: "http://www.deviantart.com/users/login" )
+  else if newMessages.length == 0
+    refresh()
+  else
+    max = Store.get('maxTabs')
+    chrome.tabs.create( url: message.url ) for message in newMessages[0..max-1]
+    deleteMessages(message.msgid for message in newMessages[0..max-1], refresh)
+    newMessages = newMessages[max..-1]
+)
+
 Store.setDefault('updateInterval', 10 * 60 * 1000)
 Store.setDefault('maxTabs', 20)
 setLoggedOut()
 checkLoginStatus()
+
+# Externalise these so they are available to the options page.
 
 updateOptions = ->
   clearTimeout(refreshTimer)

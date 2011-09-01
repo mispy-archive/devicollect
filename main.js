@@ -1,9 +1,15 @@
 (function() {
-  var checkLoginStatus, currentIcon, deleteMessages, displayError, folderId, getDeviations, loading, loadingIconSeq, loggedIn, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, updateDisplay, updateFolderId, updateOptions, waitForLoaded;
+  var checkLoginStatus, currentIcon, deleteMessages, deletedIds, displayError, folderId, getDeviations, loadingIconSeq, maxMessages, n, newMessages, originalIcon, refresh, refreshTimer, rotateIcon, setIcon, setLoggedIn, setLoggedOut, state, updateDisplay, updateFolderId, updateOptions, waitForLoaded;
+  var __indexOf = Array.prototype.indexOf || function(item) {
+    for (var i = 0, l = this.length; i < l; i++) {
+      if (this[i] === item) return i;
+    }
+    return -1;
+  };
+  state = 'idle';
   folderId = null;
-  loggedIn = false;
-  loading = false;
   newMessages = [];
+  deletedIds = [];
   originalIcon = "icons/icon.png";
   loadingIconSeq = (function() {
     var _results;
@@ -22,7 +28,7 @@
   };
   rotateIcon = function() {
     var icon;
-    if (!loading) {
+    if (state !== 'loading') {
       return;
     }
     icon = loadingIconSeq[loadingIconSeq.indexOf(currentIcon) + 1];
@@ -34,7 +40,7 @@
   };
   $(document).ajaxStart(function() {
     console.log("Ajax start!");
-    loading = true;
+    state = 'loading';
     chrome.browserAction.setBadgeText({
       text: ''
     });
@@ -42,13 +48,13 @@
   });
   $(document).ajaxStop(function() {
     console.log("Ajax stop!");
-    loading = false;
+    state = 'idle';
     return setIcon(originalIcon);
   });
   $(document).ajaxError(function(event) {
     console.log("Ajax error!");
     console.log(event);
-    loading = false;
+    state = 'error';
     setIcon(originalIcon);
     return displayError("Error connecting to deviantART!");
   });
@@ -96,6 +102,7 @@
       };
       console.log("Deleting messages...");
       return $.post("http://my.deviantart.com/global/difi/?", data, function(resp) {
+        deletedIds = deletedIds.concat(msgIds);
         if (callback != null) {
           return callback();
         }
@@ -163,10 +170,17 @@
     if (refreshTimer != null) {
       clearTimeout(refreshTimer);
     }
-    if (loggedIn) {
+    if (state !== 'needlogin') {
       fetch = function() {
         return getDeviations(function(hits) {
-          newMessages = hits;
+          var hit, _i, _len, _ref;
+          newMessages = [];
+          for (_i = 0, _len = hits.length; _i < _len; _i++) {
+            hit = hits[_i];
+            if (_ref = hit.msgid, __indexOf.call(deletedIds, _ref) < 0) {
+              newMessages.push(hit);
+            }
+          }
           return updateDisplay();
         });
       };
@@ -180,11 +194,61 @@
     }
     return refreshTimer = setTimeout(refresh, Store.get('updateInterval'));
   };
+  waitForLoaded = function(tabId, callback) {
+    var repeater, timer;
+    timer = null;
+    repeater = function() {
+      return chrome.tabs.get(tabId, function(tab) {
+        if (tab.status === 'complete') {
+          clearTimeout(timer);
+          return callback();
+        } else {
+          return timer = setTimeout(repeater, 500);
+        }
+      });
+    };
+    return repeater();
+  };
+  setLoggedOut = function() {
+    console.log("Login required!");
+    state = 'needlogin';
+    folderId = null;
+    chrome.browserAction.setBadgeText({
+      text: "login"
+    });
+    return chrome.browserAction.setTitle({
+      title: "Please log in to deviantART."
+    });
+  };
+  setLoggedIn = function() {
+    folderId = null;
+    state = 'idle';
+    return refresh();
+  };
+  checkLoginStatus = function() {
+    return chrome.cookies.get({
+      url: "http://my.deviantart.com/",
+      name: "userinfo"
+    }, function(cookie) {
+      var ui;
+      ui = $.parseJSON(decodeURIComponent(cookie.value).split(";")[1]);
+      if (ui.username === "" && state !== 'needlogin') {
+        return setLoggedOut();
+      } else if (ui.username !== "" && state === 'needlogin') {
+        return setLoggedIn();
+      }
+    });
+  };
+  chrome.cookies.onChanged.addListener(function(changeInfo) {
+    if (changeInfo.cookie.domain === ".deviantart.com" && changeInfo.cookie.name === "userinfo") {
+      return checkLoginStatus();
+    }
+  });
   chrome.browserAction.onClicked.addListener(function(tab) {
     var max, message, _i, _len, _ref;
-    if (loading) {
+    if (state === 'loading') {
       console.log("Loading...");
-    } else if (!loggedIn) {
+    } else if (state === 'needlogin') {
       return chrome.tabs.create({
         url: "http://www.deviantart.com/users/login"
       });
@@ -210,67 +274,6 @@
         return _results;
       })(), refresh);
       return newMessages = newMessages.slice(max);
-    }
-  });
-  waitForLoaded = function(tabId, callback) {
-    var repeater, timer;
-    timer = null;
-    repeater = function() {
-      return chrome.tabs.get(tabId, function(tab) {
-        if (tab.status === 'complete') {
-          clearTimeout(timer);
-          return callback();
-        } else {
-          return timer = setTimeout(repeater, 500);
-        }
-      });
-    };
-    return repeater();
-  };
-  /*
-  chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
-    console.log("From: '#{tab.url}' to '#{changeInfo.url}'")
-    if needLogin and tab.url.match(/deviantart.com\/($|\?loggedin)/)
-      console.log("Logged in? :D")
-      needLogin = false
-      waitForLoaded(tab.id, refresh)
-    else if tab.url.match(/deviantart.+?rockedout/)
-      console.log("Logged out? :(")
-      waitForLoaded(tab.id, refresh)
-  */
-  setLoggedOut = function() {
-    console.log("Login required!");
-    loggedIn = false;
-    folderId = null;
-    chrome.browserAction.setBadgeText({
-      text: "login"
-    });
-    return chrome.browserAction.setTitle({
-      title: "Please log in to deviantART."
-    });
-  };
-  setLoggedIn = function() {
-    folderId = null;
-    loggedIn = true;
-    return refresh();
-  };
-  checkLoginStatus = function() {
-    return chrome.cookies.get({
-      url: "http://my.deviantart.com/",
-      name: "userinfo"
-    }, function(cookie) {
-      var ui;
-      ui = $.parseJSON(decodeURIComponent(cookie.value).split(";")[1]);
-      if (ui.username === "" && loggedIn) {
-        return setLoggedOut();
-      } else if (ui.username !== "" && !loggedIn) {
-        return setLoggedIn();
-      }
-    });
-  };
-  chrome.cookies.onChanged.addListener(function(changeInfo) {
-    if (changeInfo.cookie.domain === ".deviantart.com" && changeInfo.cookie.name === "userinfo") {
-      return checkLoginStatus();
     }
   });
   Store.setDefault('updateInterval', 10 * 60 * 1000);
