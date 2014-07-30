@@ -103,7 +103,7 @@ getDeviations = (callback) ->
       catch err
         console.log(err)
         displayError("Error parsing response from deviantART.")
-        
+
       console.log("Deviations retrieved!")
       callback(hits)
   )
@@ -176,7 +176,7 @@ checkLoginStatus = ->
 chrome.cookies.onChanged.addListener (changeInfo) ->
   if changeInfo.cookie.domain == ".deviantart.com" and changeInfo.cookie.name == "userinfo"
     checkLoginStatus()
-  
+
 chrome.browserAction.onClicked.addListener((tab) ->
   if state == 'loading'
     console.log("Loading...")
